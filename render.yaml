@@ -1,0 +1,50 @@
+services:
+  - type: web
+    name: oakridge-textbot
+    runtime: python
+    plan: starter  # always on; the free plan sleeps and would miss texts
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn textbot.main:create_app --factory --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    disk:
+      name: textbot-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.0
+      - key: DB_PATH
+        value: /var/data/textbot.sqlite3
+      - key: SHADOW_MODE
+        value: "true"
+      - key: TIMEZONE
+        value: America/Chicago
+      # Secrets: set these in the Render dashboard, never here.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: RINGCENTRAL_CLIENT_ID
+        sync: false
+      - key: RINGCENTRAL_CLIENT_SECRET
+        sync: false
+      - key: RINGCENTRAL_JWT
+        sync: false
+      - key: RINGCENTRAL_WEBHOOK_TOKEN
+        sync: false
+      - key: RM_USERNAME
+        sync: false
+      - key: RM_PASSWORD
+        sync: false
+      - key: SLACK_BOT_TOKEN
+        sync: false
+      - key: SLACK_SIGNING_SECRET
+        sync: false
+      - key: SLACK_CHANNEL_ID
+        sync: false
+      - key: SLACK_APPROVER_USER_IDS
+        sync: false
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: TEST_NUMBERS
+        sync: false
+      - key: STAFF_NUMBERS
+        sync: false
