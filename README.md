@@ -1,5 +1,9 @@
 # Oak Ridge text bot
 
+> This repo also contains **`books/`**, a QuickBooks portfolio monitor. It syncs every LLC's
+> QuickBooks company, sends alerts and a weekly scorecard to Slack, and gives Claude read access to
+> all entities through MCP. See [`books/README.md`](books/README.md).
+
 Answers inbound RingCentral texts for the parks in real time, using the rules from the
 `ringcentral-single-text-reply` skill. It starts in **shadow mode**: Claude drafts a reply
 for every text and posts it to Slack with **Send / Edit / Skip**; nothing goes to a tenant

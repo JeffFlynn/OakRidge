@@ -48,3 +48,46 @@ services:
         sync: false
       - key: STAFF_NUMBERS
         sync: false
+
+  - type: web
+    name: oakridge-books
+    runtime: python
+    plan: starter  # always on: receives Intuit webhooks and runs the scheduler
+    buildCommand: pip install -r requirements.txt
+    # No access log: the connect link and claude.ai connector URL carry the access key.
+    startCommand: uvicorn books.main:create_app --factory --host 0.0.0.0 --port $PORT --no-access-log
+    healthCheckPath: /health
+    disk:
+      name: books-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.0
+      - key: DB_PATH
+        value: /var/data/books.sqlite3
+      - key: TIMEZONE
+        value: America/Chicago
+      - key: INTUIT_ENVIRONMENT
+        value: production
+      # Secrets: set these in the Render dashboard, never here.
+      - key: INTUIT_CLIENT_ID
+        sync: false
+      - key: INTUIT_CLIENT_SECRET
+        sync: false
+      - key: INTUIT_WEBHOOK_VERIFIER
+        sync: false
+      - key: BOOKS_ACCESS_KEY
+        sync: false
+      - key: BOOKS_TOKEN_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: SLACK_BOT_TOKEN
+        sync: false
+      - key: SLACK_SIGNING_SECRET
+        sync: false
+      - key: SLACK_CHANNEL_ID
+        sync: false
+      - key: PUBLIC_BASE_URL
+        sync: false
