@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 import pytest
 
+from textbot.alerts import Alerter
 from textbot.config import Settings
 from textbot.models import Decision, InboundText, ThreadMessage
 from textbot.pipeline import Pipeline
@@ -50,23 +51,6 @@ class FakeAgent:
         return dataclasses.replace(self.decision)
 
 
-class FakeSlack:
-    def __init__(self) -> None:
-        self.posts: list[tuple[str, list | None]] = []
-        self.updates: list[tuple[str, str]] = []
-        self.modals: list[dict] = []
-
-    async def post(self, text: str, blocks=None) -> str:
-        self.posts.append((text, blocks))
-        return f"ts-{len(self.posts)}"
-
-    async def update(self, ts: str, text: str, blocks=None) -> None:
-        self.updates.append((ts, text))
-
-    async def open_modal(self, trigger_id: str, view: dict) -> None:
-        self.modals.append(view)
-
-
 def safe_decision(**overrides) -> Decision:
     base = dict(
         category="maintenance",
@@ -105,12 +89,13 @@ def inbound(message_id: str = "m1", text: str = "my sink is leaking", conv: str 
 def make_pipeline():
     def _make(settings: Settings | None = None, decision: Decision | None = None):
         settings = settings or make_settings()
+        rc = FakeRC()
         pipe = Pipeline(
             settings,
             Store(settings.db_path),
-            FakeRC(),
+            rc,
             FakeAgent(decision),
-            FakeSlack(),
+            Alerter(settings, rc),
             clock=lambda: NOON_CT,
         )
 

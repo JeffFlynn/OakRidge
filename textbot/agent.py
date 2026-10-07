@@ -32,6 +32,7 @@ DECISION_SCHEMA = {
         "sensitive_topic": {"type": "boolean"},
         "lookups_done": {"type": "array", "items": {"type": "string"}},
         "needs_from_jeff": {"type": "string"},
+        "tenant_label": {"type": "string"},
     },
     "required": [
         "category",
@@ -44,6 +45,7 @@ DECISION_SCHEMA = {
         "sensitive_topic",
         "lookups_done",
         "needs_from_jeff",
+        "tenant_label",
     ],
     "additionalProperties": False,
 }
@@ -202,4 +204,5 @@ def parse_decision(text: str) -> Decision:
         sensitive_topic=bool(data.get("sensitive_topic")),
         lookups_done=[str(x) for x in data.get("lookups_done", [])],
         needs_from_jeff=str(data.get("needs_from_jeff", "")),
+        tenant_label=str(data.get("tenant_label", "")),
     )

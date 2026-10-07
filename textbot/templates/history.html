@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% set active = 'history' %}
+{% block title %}History · Text Bot{% endblock %}
+{% block content %}
+<h1>History</h1>
+<form method="get" action="/history" class="row" style="margin-bottom:12px;">
+  <input type="search" name="q" value="{{ q }}" placeholder="Search by phone or name" style="flex:1; min-width:200px;">
+  <button type="submit">Search</button>
+</form>
+
+{% if not drafts %}<div class="empty">No texts yet{{ ' matching that search' if q }}.</div>{% endif %}
+
+{% for d in drafts %}
+<div class="card">
+  <div>
+    <span class="who">{{ d.tenant_label or (d.tenant_phone|phone) }}</span>
+    {% if d.tenant_label %}<span class="meta"> · {{ d.tenant_phone|phone }}</span>{% endif %}
+  </div>
+  <div class="meta" style="margin-top:2px;">
+    <span class="tag {{ 'ok' if d.status in ('sent', 'auto_sent') }}">{{ status_labels.get(d.status, d.status) }}{% if d.decided_by and d.decided_by != 'bot' %} by {{ d.decided_by }}{% endif %}</span>
+    <span class="tag">{{ category_labels.get(d.category, d.category) }}</span>
+    {{ d.created_at|local }}
+  </div>
+  <div class="thread"><div class="msg in">{{ d.inbound_text }}</div>
+    {% if d.final_text %}<div class="msg out">{{ d.final_text }}</div>{% endif %}
+  </div>
+  {% if d.status == 'sent' and d.final_text != d.reply.strip() and d.reply %}
+  <details><summary>Edited. Claude's draft was:</summary><p class="why">{{ d.reply }}</p></details>
+  {% elif d.status in ('skipped', 'superseded', 'pending') and d.reply %}
+  <details><summary>Claude's draft</summary><p class="why">{{ d.reply }}</p></details>
+  {% endif %}
+  <details><summary>Claude's reasoning</summary><p class="why">{{ d.reason }}</p></details>
+</div>
+{% endfor %}
+{% endblock %}

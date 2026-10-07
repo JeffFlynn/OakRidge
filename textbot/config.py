@@ -6,7 +6,7 @@ Safe defaults: shadow mode on, no categories allowed to auto-send.
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from textbot.phone import normalize_phone
 
@@ -70,11 +70,15 @@ class Settings:
     rm_password: str = ""
     rm_location_id: int = 1
 
-    # Slack
-    slack_bot_token: str = ""
-    slack_signing_secret: str = ""
-    slack_channel_id: str = ""
-    slack_approver_user_ids: frozenset[str] = field(default_factory=frozenset)
+    # Alerts: texts to these numbers when something needs approval
+    alert_numbers: frozenset[str] = frozenset()
+    alert_from_number: str = ""  # park line the alerts come from
+    alert_cooldown_minutes: int = 10
+
+    # Web app
+    session_secret: str = ""
+    admin_username: str = ""  # first admin account, created on startup if no users exist
+    admin_password: str = ""
 
     # Deployment
     public_base_url: str = ""
@@ -107,9 +111,11 @@ def load_settings() -> Settings:
         rm_username=os.environ.get("RM_USERNAME", ""),
         rm_password=os.environ.get("RM_PASSWORD", ""),
         rm_location_id=_int("RM_LOCATION_ID", 1),
-        slack_bot_token=os.environ.get("SLACK_BOT_TOKEN", ""),
-        slack_signing_secret=os.environ.get("SLACK_SIGNING_SECRET", ""),
-        slack_channel_id=os.environ.get("SLACK_CHANNEL_ID", ""),
-        slack_approver_user_ids=frozenset(_list("SLACK_APPROVER_USER_IDS")),
+        alert_numbers=_phones("ALERT_NUMBERS"),
+        alert_from_number=normalize_phone(os.environ.get("ALERT_FROM_NUMBER", "")),
+        alert_cooldown_minutes=_int("ALERT_COOLDOWN_MINUTES", 10),
+        session_secret=os.environ.get("SESSION_SECRET", ""),
+        admin_username=os.environ.get("ADMIN_USERNAME", ""),
+        admin_password=os.environ.get("ADMIN_PASSWORD", ""),
         public_base_url=os.environ.get("PUBLIC_BASE_URL", "").rstrip("/"),
     )

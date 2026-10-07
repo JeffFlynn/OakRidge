@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% set active = 'scorecard' %}
+{% block title %}Scorecard · Text Bot{% endblock %}
+{% block content %}
+<h1>Scorecard</h1>
+<p class="meta">How Claude's drafts have done, by type of text. When a type is sent unchanged nearly every
+time over a good number of texts, it's a candidate for auto-send on the Settings page.</p>
+
+{% if not rows %}
+<div class="empty">No texts yet. This fills in as the bot handles messages.</div>
+{% else %}
+<div class="card" style="padding-top:2px; padding-bottom:2px;">
+  {% for r in rows %}
+  <div class="score">
+    <div>
+      <div class="who">{{ category_labels.get(r.category, r.category) }}
+        {% if r.category in auto_categories %}<span class="tag ok">auto-send on</span>{% endif %}</div>
+      <div class="meta">
+        {{ r.unchanged }} sent as-is · {{ r.edited }} edited · {{ r.skipped }} skipped
+        {% if r.auto_sent %} · {{ r.auto_sent }} auto-sent{% endif %}
+        {% if r.waiting %} · {{ r.waiting }} waiting{% endif %}
+      </div>
+    </div>
+    <div style="text-align:right;">
+      {% if r.unchanged_pct is not none %}<div class="pct">{{ r.unchanged_pct }}%</div><div class="meta">as-is of {{ r.decided }}</div>
+      {% else %}<div class="meta">no decisions yet</div>{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+<p class="meta">"Skipped" includes texts where Claude said no reply was needed and you agreed.</p>
+{% endif %}
+{% endblock %}

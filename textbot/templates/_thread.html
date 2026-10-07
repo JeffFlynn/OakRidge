@@ -1,0 +1,14 @@
+{# Conversation bubbles: older messages collapsed, last few shown. Expects `d` (a Draft). #}
+{% set older = d.thread[:-4] %}
+{% set recent = d.thread[-4:] %}
+{% if older %}
+<details><summary>{{ older|length }} earlier message{{ 's' if older|length != 1 }}</summary>
+  <div class="thread">
+  {% for m in older %}<div class="msg {{ 'in' if m.direction == 'Inbound' else 'out' }}">{{ m.text }}<time>{{ m.created|local }}</time></div>{% endfor %}
+  </div>
+</details>
+{% endif %}
+<div class="thread">
+{% for m in recent %}<div class="msg {{ 'in' if m.direction == 'Inbound' else 'out' }}">{{ m.text }}<time>{{ m.created|local }}</time></div>{% endfor %}
+{% if not d.thread %}<div class="msg in">{{ d.inbound_text }}</div>{% endif %}
+</div>

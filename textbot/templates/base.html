@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>{% block title %}Text Bot{% endblock %}</title>
+  <style>
+    :root {
+      --bg: #f6f5f2; --surface: #ffffff; --surface-2: #f0eee9; --text: #1d1d1b; --muted: #6b6a66;
+      --line: #e2dfd8; --accent: #2f6b4f; --accent-text: #ffffff; --warn: #9a5b00; --warn-bg: #fff4e0;
+      --danger: #a1322b; --danger-bg: #fdecea; --info-bg: #eaf2ee; --bubble-in: #f0eee9; --bubble-out: #e3efe8;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #161615; --surface: #1f1f1d; --surface-2: #2a2a27; --text: #ecebe7; --muted: #a3a29c;
+        --line: #34332f; --accent: #6fbf95; --accent-text: #0e1a14; --warn: #f0b45c; --warn-bg: #33281a;
+        --danger: #f08a80; --danger-bg: #3a1f1c; --info-bg: #1d2b24; --bubble-in: #2a2a27; --bubble-out: #23362c;
+      }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text);
+      font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    a { color: var(--accent); }
+    header { background: var(--surface); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+    .bar { max-width: 760px; margin: 0 auto; padding: 10px 16px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .brand { font-weight: 700; margin-right: auto; }
+    nav a { text-decoration: none; color: var(--muted); padding: 6px 10px; border-radius: 8px; font-size: 15px; }
+    nav a.on { color: var(--text); background: var(--surface-2); font-weight: 600; }
+    .count { background: var(--accent); color: var(--accent-text); border-radius: 999px; padding: 0 7px; font-size: 13px; margin-left: 3px; }
+    main { max-width: 760px; margin: 0 auto; padding: 16px; }
+    h1 { font-size: 22px; margin: 4px 0 12px; }
+    h2 { font-size: 17px; margin: 20px 0 8px; }
+    .banner { border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+    .banner.warn { background: var(--warn-bg); color: var(--warn); }
+    .banner.danger { background: var(--danger-bg); color: var(--danger); }
+    .banner.info { background: var(--info-bg); }
+    .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+    .card.flag { border-color: var(--danger); }
+    .meta { color: var(--muted); font-size: 14px; }
+    .who { font-weight: 650; }
+    .tag { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--surface-2); color: var(--muted); margin-right: 4px; }
+    .tag.flag { background: var(--danger-bg); color: var(--danger); }
+    .tag.ok { background: var(--info-bg); color: var(--accent); }
+    .thread { margin: 10px 0; display: flex; flex-direction: column; gap: 6px; }
+    .msg { max-width: 85%; padding: 7px 11px; border-radius: 14px; white-space: pre-wrap; word-wrap: break-word; }
+    .msg.in { background: var(--bubble-in); align-self: flex-start; }
+    .msg.out { background: var(--bubble-out); align-self: flex-end; }
+    .msg time { display: block; font-size: 11px; color: var(--muted); }
+    details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+    .why { font-size: 14px; color: var(--muted); margin: 8px 0; }
+    .why b { color: var(--text); }
+    textarea, input[type=text], input[type=password], input[type=search] {
+      width: 100%; font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--line);
+      border-radius: 10px; padding: 10px; }
+    textarea { min-height: 80px; resize: vertical; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    button { font: inherit; border-radius: 10px; padding: 10px 16px; border: 1px solid var(--line);
+      background: var(--surface-2); color: var(--text); cursor: pointer; min-height: 44px; }
+    button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
+    button.danger { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
+    button.link { background: none; border: none; color: var(--muted); padding: 6px 8px; min-height: 0; }
+    .empty { text-align: center; color: var(--muted); padding: 40px 10px; }
+    table { width: 100%; border-collapse: collapse; font-size: 15px; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { color: var(--muted); font-weight: 600; font-size: 13px; }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .scroll { overflow-x: auto; }
+    .score { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; padding: 12px 0; border-bottom: 1px solid var(--line); }
+    .score:last-child { border-bottom: none; }
+    .score .pct { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    label.check { display: flex; gap: 10px; align-items: center; padding: 8px 0; }
+    label.check input { width: 20px; height: 20px; }
+    .field { margin: 10px 0; }
+    .field label { display: block; font-size: 14px; color: var(--muted); margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+{% if user %}
+<header>
+  <div class="bar">
+    <span class="brand">Text Bot</span>
+    <nav>
+      <a href="/" class="{{ 'on' if active == 'inbox' }}">Inbox{% if pending_count %}<span class="count">{{ pending_count }}</span>{% endif %}</a>
+      <a href="/history" class="{{ 'on' if active == 'history' }}">History</a>
+      <a href="/scorecard" class="{{ 'on' if active == 'scorecard' }}">Scorecard</a>
+      <a href="/settings" class="{{ 'on' if active == 'settings' }}">Settings</a>
+    </nav>
+  </div>
+</header>
+{% endif %}
+<main>
+  {% if user and paused %}
+  <div class="banner danger"><span><b>Paused.</b> Nothing auto-sends. Drafts still arrive here.</span>
+    {% if user.is_admin %}<a href="/settings">Resume</a>{% endif %}</div>
+  {% elif user and shadow_mode %}
+  <div class="banner info"><span><b>Shadow mode.</b> Nothing goes to tenants unless you tap Send.</span></div>
+  {% endif %}
+  {% if msg %}<div class="banner warn">{{ msg }}</div>{% endif %}
+  {% block content %}{% endblock %}
+</main>
+</body>
+</html>

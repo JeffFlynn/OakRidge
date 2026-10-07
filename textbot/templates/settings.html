@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% set active = 'settings' %}
+{% block title %}Settings · Text Bot{% endblock %}
+{% block content %}
+<h1>Settings</h1>
+
+{% if user.is_admin %}
+<form method="post" action="/settings/bot" class="card">
+  <h2 style="margin-top:0;">Bot</h2>
+  <label class="check"><input type="checkbox" name="paused" value="1" {{ 'checked' if paused }}>
+    <span><b>Paused</b><br><span class="meta">Nothing auto-sends. Drafts still come to the inbox.</span></span></label>
+  <label class="check"><input type="checkbox" name="shadow_mode" value="1" {{ 'checked' if shadow_mode }}>
+    <span><b>Shadow mode</b><br><span class="meta">Every reply waits for a person, whatever is ticked below.</span></span></label>
+
+  <h2>Types that may auto-send</h2>
+  <p class="meta">Only used when shadow mode is off. Even then, a reply only goes out on its own if Claude
+    verified every fact, it makes no new promises, it isn't sensitive, and it's outside quiet hours
+    ({{ settings.quiet_hours_start }}:00–{{ settings.quiet_hours_end }}:00). ADA, tenant-vs-tenant and staff
+    threads always wait for a person.</p>
+  {% for c in categories %}
+  <label class="check"><input type="checkbox" name="auto_send_categories" value="{{ c }}" {{ 'checked' if c in auto_categories }}>
+    {{ category_labels.get(c, c) }}</label>
+  {% endfor %}
+  <div class="row"><button class="primary" type="submit">Save</button></div>
+</form>
+
+<div class="card">
+  <h2 style="margin-top:0;">People</h2>
+  <table>
+    <thead><tr><th>Username</th><th>Role</th><th></th></tr></thead>
+    <tbody>
+    {% for u in users %}
+    <tr>
+      <td>{{ u.username }}{% if not u.active %} <span class="tag">disabled</span>{% endif %}</td>
+      <td>{{ 'Admin' if u.is_admin else 'Staff' }}</td>
+      <td>{% if u.id != user.id %}
+        <form method="post" action="/settings/users/{{ u.id }}/toggle"><button class="link" type="submit">{{ 'Disable' if u.active else 'Enable' }}</button></form>
+      {% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <h2>Add someone</h2>
+  <p class="meta">Staff can send, edit and skip drafts and pause the bot. Admins can also change these settings.</p>
+  <form method="post" action="/settings/users">
+    <div class="field"><label for="nu">Username</label><input type="text" id="nu" name="username" autocapitalize="none" required></div>
+    <div class="field"><label for="np">Temporary password (10+ characters)</label><input type="password" id="np" name="password" minlength="10" autocomplete="new-password" required></div>
+    <label class="check"><input type="checkbox" name="is_admin" value="1"> Admin</label>
+    <div class="row"><button type="submit">Add</button></div>
+  </form>
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0;">Recent activity</h2>
+  {% if not events %}<p class="meta">Nothing yet.</p>{% endif %}
+  {% for e in events %}
+  <div class="why" style="margin:4px 0;"><span class="tag {{ 'flag' if e.level == 'error' }}">{{ e.level }}</span> {{ e.message }} <span class="meta">· {{ e.created_at|local }}</span></div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card"><p class="meta" style="margin:0;">Bot settings are managed by an admin. You can pause the bot from the Inbox at any time.</p></div>
+{% endif %}
+
+<form method="post" action="/account/password" class="card">
+  <h2 style="margin-top:0;">Your password</h2>
+  <div class="field"><label for="cp">Current password</label><input type="password" id="cp" name="current" autocomplete="current-password" required></div>
+  <div class="field"><label for="ncp">New password (10+ characters)</label><input type="password" id="ncp" name="new" minlength="10" autocomplete="new-password" required></div>
+  <div class="row"><button type="submit">Change password</button></div>
+</form>
+
+<form method="post" action="/logout"><button class="link" type="submit">Sign out ({{ user.username }})</button></form>
+{% endblock %}

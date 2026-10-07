@@ -49,6 +49,7 @@ class Decision:
     sensitive_topic: bool = False
     lookups_done: list[str] = field(default_factory=list)
     needs_from_jeff: str = ""
+    tenant_label: str = ""  # e.g. "Pat Doe, Oak Ridge Lot 12", when Rent Manager identified them
 
     @classmethod
     def hold(cls, reason: str, category: str = "other") -> "Decision":

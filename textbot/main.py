@@ -1,4 +1,4 @@
-"""Web server: RingCentral webhook, Slack buttons and /textbot command, health check.
+"""Web server: RingCentral webhook, the web app, health check.
 
 Run locally:  uvicorn textbot.main:create_app --factory --reload
 """
@@ -9,19 +9,19 @@ import asyncio
 import contextlib
 import json
 import logging
-from urllib.parse import parse_qs
 
 import anthropic
 from fastapi import BackgroundTasks, FastAPI, Request, Response
-from fastapi.responses import JSONResponse, PlainTextResponse
 
+from textbot import auth
 from textbot.agent import ReplyAgent
+from textbot.alerts import Alerter
 from textbot.config import Settings, load_settings
 from textbot.pipeline import Pipeline
 from textbot.rentmanager import RentManagerClient
 from textbot.ringcentral import RingCentralClient, outbound_conversation_id, parse_notification
-from textbot.slack import SlackClient, edit_modal, verify_signature
 from textbot.store import Store
+from textbot.web import build_router, resolve_session_secret
 
 log = logging.getLogger("textbot")
 SUBSCRIPTION_CHECK_SECONDS = 60 * 60 * 12
@@ -42,8 +42,18 @@ def build_pipeline(settings: Settings) -> Pipeline:
         settings.anthropic_effort,
         settings.timezone,
     )
-    slack = SlackClient(settings.slack_bot_token, settings.slack_channel_id)
-    return Pipeline(settings, store, rc, agent, slack)
+    return Pipeline(settings, store, rc, agent, Alerter(settings, rc))
+
+
+def bootstrap_admin(settings: Settings, store: Store) -> None:
+    """Create the first admin from ADMIN_USERNAME / ADMIN_PASSWORD if nobody can log in yet."""
+    if store.count_users() or not (settings.admin_username and settings.admin_password):
+        return
+    if len(settings.admin_password) < auth.MIN_PASSWORD_LENGTH:
+        log.error("ADMIN_PASSWORD must be at least %d characters; no admin created", auth.MIN_PASSWORD_LENGTH)
+        return
+    store.add_user(settings.admin_username, auth.hash_password(settings.admin_password), is_admin=True)
+    log.info("created admin user %s", settings.admin_username)
 
 
 def create_app(settings: Settings | None = None, pipeline: Pipeline | None = None) -> FastAPI:
@@ -51,6 +61,7 @@ def create_app(settings: Settings | None = None, pipeline: Pipeline | None = Non
         logging.basicConfig(level=logging.INFO)
         settings = load_settings()
     pipeline = pipeline or build_pipeline(settings)
+    bootstrap_admin(settings, pipeline.store)
 
     async def keep_subscription_alive() -> None:
         webhook = f"{settings.public_base_url}/webhooks/ringcentral"
@@ -62,6 +73,7 @@ def create_app(settings: Settings | None = None, pipeline: Pipeline | None = Non
                 log.info("RingCentral webhook subscription %s is active", sub_id)
             except Exception:
                 log.exception("could not create or renew the RingCentral subscription")
+                pipeline.store.log_event("error", "Couldn't create or renew the RingCentral webhook")
             await asyncio.sleep(SUBSCRIPTION_CHECK_SECONDS)
 
     @contextlib.asynccontextmanager
@@ -73,17 +85,12 @@ def create_app(settings: Settings | None = None, pipeline: Pipeline | None = Non
         if task:
             task.cancel()
 
-    app = FastAPI(title="Oak Ridge text bot", lifespan=lifespan)
+    app = FastAPI(title="Oak Ridge text bot", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.state.pipeline = pipeline
 
     @app.get("/health")
     async def health() -> dict:
-        return {
-            "ok": True,
-            "shadow_mode": settings.shadow_mode,
-            "paused": pipeline.store.is_paused(),
-            "auto_send_categories": sorted(settings.auto_send_categories),
-        }
+        return {"ok": True}
 
     @app.post("/webhooks/ringcentral")
     async def ringcentral_webhook(request: Request, background: BackgroundTasks) -> Response:
@@ -106,80 +113,5 @@ def create_app(settings: Settings | None = None, pipeline: Pipeline | None = Non
             background.add_task(pipeline.handle_outbound, conversation)
         return Response(status_code=200)
 
-    async def _verified_body(request: Request) -> bytes | None:
-        body = await request.body()
-        ok = verify_signature(
-            settings.slack_signing_secret,
-            request.headers.get("X-Slack-Request-Timestamp", ""),
-            body,
-            request.headers.get("X-Slack-Signature", ""),
-        )
-        return body if ok else None
-
-    def _allowed(user_id: str) -> bool:
-        return not settings.slack_approver_user_ids or user_id in settings.slack_approver_user_ids
-
-    @app.post("/slack/interactions")
-    async def slack_interactions(request: Request, background: BackgroundTasks) -> Response:
-        body = await _verified_body(request)
-        if body is None:
-            return Response(status_code=401)
-        payload = json.loads(parse_qs(body.decode())["payload"][0])
-        user_id = (payload.get("user") or {}).get("id", "")
-        if not _allowed(user_id):
-            return Response(status_code=200)
-
-        if payload.get("type") == "block_actions":
-            action = (payload.get("actions") or [{}])[0]
-            draft_id = int(action.get("value", "0"))
-            if action.get("action_id") == "send":
-                background.add_task(pipeline.approve, draft_id, None, user_id)
-            elif action.get("action_id") == "skip":
-                background.add_task(pipeline.skip, draft_id, user_id)
-            elif action.get("action_id") == "edit":
-                draft = pipeline.store.get_draft(draft_id)
-                if draft is not None and draft.status == "pending":
-                    # Slack trigger ids expire in 3 seconds, so open the modal right away.
-                    await pipeline.slack.open_modal(payload["trigger_id"], edit_modal(draft))
-            return Response(status_code=200)
-
-        if payload.get("type") == "view_submission":
-            view = payload.get("view") or {}
-            if view.get("callback_id") == "edit_reply":
-                draft_id = int(view.get("private_metadata", "0"))
-                text = view["state"]["values"]["reply"]["text"]["value"] or ""
-                if not text.strip():
-                    return JSONResponse(
-                        {"response_action": "errors", "errors": {"reply": "Reply can't be empty"}}
-                    )
-                background.add_task(pipeline.approve, draft_id, text, user_id)
-            return Response(status_code=200)
-
-        return Response(status_code=200)
-
-    @app.post("/slack/commands")
-    async def slack_commands(request: Request) -> Response:
-        body = await _verified_body(request)
-        if body is None:
-            return Response(status_code=401)
-        form = {k: v[0] for k, v in parse_qs(body.decode()).items()}
-        if not _allowed(form.get("user_id", "")):
-            return PlainTextResponse("You're not allowed to control the text bot.")
-        arg = form.get("text", "").strip().lower()
-        if arg == "pause":
-            pipeline.store.set_setting("paused", "1")
-            return PlainTextResponse("Text bot paused: nothing will auto-send. Drafts still come here.")
-        if arg == "resume":
-            pipeline.store.set_setting("paused", "0")
-            return PlainTextResponse("Text bot resumed.")
-        stats = pipeline.store.stats()
-        mode = "shadow mode (nothing auto-sends)" if settings.shadow_mode else "live"
-        return PlainTextResponse(
-            f"Text bot is {'PAUSED' if pipeline.store.is_paused() else 'running'}, {mode}.\n"
-            f"Auto-send categories: {', '.join(sorted(settings.auto_send_categories)) or 'none'}\n"
-            f"Drafts so far: {stats or 'none'}\n"
-            "Commands: /textbot pause, /textbot resume, /textbot status"
-        )
-
+    app.include_router(build_router(pipeline, resolve_session_secret(settings.session_secret)))
     return app
-

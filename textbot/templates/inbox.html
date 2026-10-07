@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% set active = 'inbox' %}
+{% block title %}Inbox ({{ pending_count }}) · Text Bot{% endblock %}
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+  <h1>Inbox</h1>
+  {% if not paused %}
+  <form method="post" action="/settings/pause"><button class="danger" type="submit">Pause bot</button></form>
+  {% endif %}
+</div>
+
+{% if recent_error %}
+<div class="banner danger"><span><b>Recent problem:</b> {{ recent_error.message }} <span class="meta">({{ recent_error.created_at|local }})</span></span></div>
+{% endif %}
+
+{% if not drafts %}
+<div class="empty">Nothing waiting. New texts that need you will show up here.</div>
+{% endif %}
+
+{% for d in drafts %}
+<div class="card {{ 'flag' if d.action == 'flag' }}" id="draft-{{ d.id }}">
+  <div>
+    <span class="who">{{ d.tenant_label or (d.tenant_phone|phone) }}</span>
+    {% if d.tenant_label %}<span class="meta"> · {{ d.tenant_phone|phone }}</span>{% endif %}
+  </div>
+  <div class="meta" style="margin-top:2px;">
+    <span class="tag {{ 'flag' if d.action == 'flag' }}">{{ action_labels.get(d.action, d.action) }}</span>
+    <span class="tag">{{ category_labels.get(d.category, d.category) }}</span>
+    {{ d.created_at|local }}
+  </div>
+
+  {% include "_thread.html" %}
+
+  <div class="why"><b>Claude:</b> {{ d.reason }}</div>
+  {% if d.needs_from_jeff %}<div class="why"><b>Needs from you:</b> {{ d.needs_from_jeff }}</div>{% endif %}
+  {% if d.blockers %}
+  <details><summary>Why it didn't send on its own</summary>
+    <ul class="why">{% for b in d.blockers %}<li>{{ b }}</li>{% endfor %}</ul>
+  </details>
+  {% endif %}
+
+  <form method="post" action="/drafts/{{ d.id }}/send">
+    <input type="hidden" name="edited" value="1">
+    <div class="field" style="margin-top:12px;">
+      <label for="reply-{{ d.id }}">{{ 'Reply (edit before sending if needed)' if d.reply else 'Write a reply' }}</label>
+      <textarea id="reply-{{ d.id }}" name="text" maxlength="1000" rows="{{ [[(d.reply|length // 32) + 2, 3]|max, 9]|min }}">{{ d.reply }}</textarea>
+    </div>
+    <div class="row">
+      <button class="primary" type="submit">Send</button>
+      <button type="submit" formaction="/drafts/{{ d.id }}/skip" formnovalidate>Skip</button>
+    </div>
+  </form>
+</div>
+{% endfor %}
+{% endblock %}
