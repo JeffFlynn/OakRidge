@@ -1,4 +1,4 @@
-"""Download Rent Manager's "Tenant AutoPay Configuration" report to your Desktop.
+"""Download Rent Manager's "Tenant AutoPay Configuration" report to the same folder as this script.
 
 Runs on YOUR computer (not in the cloud), opening real Chrome with Playwright.
 
@@ -16,7 +16,7 @@ Run:
 
 NOTE: Written without access to your Rent Manager screens, so the button and
 menu names below are best guesses. If a step fails, the script saves a
-screenshot next to the Desktop file and tells you which step broke. Tweak the
+screenshot next to the downloaded file and tells you which step broke. Tweak the
 LABELS dict at the top to match what you see on screen.
 """
 
@@ -30,7 +30,7 @@ from playwright.sync_api import TimeoutError as PWTimeout
 from playwright.sync_api import sync_playwright
 
 REPORT_NAME = "Tenant AutoPay Configuration"
-DESKTOP = Path.home() / "Desktop"
+DESKTOP = Path(__file__).resolve().parent  # same folder as this script
 TIMEOUT_MS = 60_000
 
 # Adjust these if your Rent Manager uses different wording.
