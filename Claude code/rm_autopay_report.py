@@ -6,7 +6,13 @@ Setup (once):
     pip install playwright
     playwright install chrome        # skip if Chrome is already installed
 
-Set your details as environment variables (never hardcode the password):
+Easiest: create a file named rm_login.txt in this same folder containing:
+    RM_URL=https://yourcompany.rentmanager.com
+    RM_USER=yourusername
+    RM_PASS=yourpassword
+(rm_login.txt is git-ignored. Never commit or share it.)
+
+Or set them as environment variables instead:
     macOS/Linux:  export RM_URL="https://yourcompany.rentmanager.com"
                   export RM_USER="you"   RM_PASS="secret"
     Windows:      setx RM_URL "https://yourcompany.rentmanager.com"  (and RM_USER, RM_PASS)
@@ -46,6 +52,17 @@ LABELS = {
 }
 
 
+def load_login_file() -> None:
+    """Read RM_URL / RM_USER / RM_PASS from rm_login.txt next to this script, if present."""
+    f = Path(__file__).resolve().parent / "rm_login.txt"
+    if not f.exists():
+        return
+    for line in f.read_text().splitlines():
+        if "=" in line and not line.lstrip().startswith("#"):
+            k, v = line.split("=", 1)
+            os.environ.setdefault(k.strip(), v.strip().strip('"'))
+
+
 def need(name: str) -> str:
     value = os.environ.get(name)
     if not value:
@@ -54,6 +71,7 @@ def need(name: str) -> str:
 
 
 def main() -> None:
+    load_login_file()
     url, user, password = need("RM_URL"), need("RM_USER"), need("RM_PASS")
     DESKTOP.mkdir(parents=True, exist_ok=True)
     step = "starting"
